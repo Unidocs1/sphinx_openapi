@@ -1,4 +1,4 @@
-# source/_extensions/sphinx_openapi/__init__.py
+# sphinx_openapi/__init__.py
 from .sphinx_openapi import SphinxOpenApi
 from sphinx.application import Sphinx
 
