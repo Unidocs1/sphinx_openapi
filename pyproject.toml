@@ -3,7 +3,7 @@ name = "sphinx_openapi"
 version = "1.0.1"
 description = "Sphinx extension for OpenAPI documentation"
 authors = ["Xsolla Backend <xbe@xsolla.com>"]
-license = "All Rights Reserved"
+license = "MIT"
 
 [tool.poetry.dependencies]
 python = ">=3.10"
