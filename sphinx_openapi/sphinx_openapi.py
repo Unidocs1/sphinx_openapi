@@ -59,25 +59,33 @@ class SphinxOpenApi:
     def setup_openapi(self, app):
         print("")
         print("[sphinx_openapi.py] Attempting to download schema files...")
-
+    
         if not os.path.exists(self.openapi_dir_path):
             os.makedirs(self.openapi_dir_path)
-
-        self.download_schema_files()
-
-        if self.openapi_file_type == OpenApiFileType.JSON:
-            self.preprocess_json_schema_file()
-        else:
+    
+        try:
+            self.download_schema_files()
+    
+            if self.openapi_file_type == OpenApiFileType.JSON:
+                self.preprocess_json_schema_file()
+            else:
+                print(
+                    f"[sphinx_openapi] openapi_file_type ({self.openapi_file_type}) "
+                    f"!= 'json'; skipping preprocessing..."
+                )
+    
             print(
-                f"[sphinx_openapi] openapi_file_type ({self.openapi_file_type}) "
-                f"!= 'json'; skipping preprocessing..."
+                f"[sphinx_openapi.py] Done:\n"
+                f"- Generated from: {self.openapi_file_path}'\n"
+                f"- Built to: 'build/html/{self.openapi_generated_file_posix_path}.html'\n"
             )
+        except Exception as e:
+            # Crash or continue?
+            if self.app.config.openapi_stop_build_on_error:
+                raise RuntimeError(f"[sphinx_openapi.py] Critical Error: {e}")
+            else:
+                print(f"[sphinx_openapi.py] Non-critical error occurred: {e}")
 
-        print(
-            f"[sphinx_openapi.py] Done:\n"
-            f"- Generated from: {self.openapi_file_path}'\n"
-            f"- Built to: 'build/html/{self.openapi_generated_file_posix_path}.html'\n"
-        )
 
     @staticmethod
     def download_file(url, save_to_path, timeout=5):
@@ -118,7 +126,7 @@ class SphinxOpenApi:
 
         try:
             schema_file_name = (
-                self.openapi_file_path_no_ext + f".{self.openapi_file_type.value}"
+                    self.openapi_file_path_no_ext + f".{self.openapi_file_type.value}"
             )
             schema_file_path = Path(self.openapi_dir_path, schema_file_name)
 

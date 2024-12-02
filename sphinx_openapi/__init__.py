@@ -9,6 +9,7 @@ def setup(app: Sphinx):
     app.add_config_value("openapi_dir_path", "_specs", "env", [str])
     app.add_config_value("openapi_generated_file_posix_path", "", "env", [str])
     app.add_config_value("openapi_file_type", "json", "env", [str])
+    app.add_config_value("openapi_stop_build_on_error", False, "env", [bool])
 
     openapi_downloader = SphinxOpenApi(app)
     app.connect("builder-inited", openapi_downloader.setup_openapi)
