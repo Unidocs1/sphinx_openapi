@@ -289,3 +289,4 @@ $RECYCLE.BIN/
 
 # Assets that are built by sphinx
 docs/tmp
+.idea
