@@ -2,7 +2,7 @@
 name = "sphinx_openapi"
 version = "1.0.3"
 description = "Sphinx extension for OpenAPI documentation"
-authors = ["Xsolla Backend <xbe@xsolla.com>"]
+authors = ["Xsolla Backend <xbe@xsolla.com>", "Dylan Hunt <d.hunt@xsolla.com>"]
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
