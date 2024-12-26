@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sphinx_openapi"
-version = "1.0.4"
+version = "1.0.5"
 description = "Sphinx extension for OpenAPI documentation"
 authors = ["Xsolla Backend <xbe@xsolla.com>", "Dylan Hunt <d.hunt@xsolla.com>"]
 readme = "README.md"
