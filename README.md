@@ -1,5 +1,8 @@
 # Sphinx Extension: OpenAPI
 
+<!-- Badges go here on the same line; PyPi doesn't support `\` or single-multi-line (it'll stack vertically) -->
+[![PyPI](https://img.shields.io/pypi/v/sphinx-openapi)](https://pypi.org/project/sphinx-openapi/) [![PyPI - License](https://img.shields.io/pypi/l/sphinx-openapi)](https://opensource.org/licenses/MIT)
+
 ## Description
 
 This Sphinx extension allows for downloading updated OpenAPI json + yaml specs for use with the
