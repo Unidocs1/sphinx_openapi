@@ -12,33 +12,44 @@ This Sphinx extension allows for downloading updated OpenAPI json + yaml specs f
 
 Add the following to your `conf.py` (includes `redoc` extension setup):
 
- ```python
-import sys, os
+```python
+import os
 from pathlib import Path
 
 html_context = {}  # This is usually already defined for other themes/extensions
-sys.path.append(os.path.abspath(os.path.join('_extensions', 'sphinx_openapi')))
-extensions = ['sphinx_openapi', 'sphinxcontrib.redoc']
+extensions = [
+	'sphinx_openapi', 
+	'sphinxcontrib.redoc',
+]
+
+# -- OpenAPI Shared: Used in multiple extensions --------------------------
+
+openapi_use_xbe_workarounds = False  # (!) True for temp workaround for XBE Doc devs only 
+
+# Downloads json|yaml files to here
+openapi_dir_path = Path("_static/specs").resolve().as_posix()
+openapi_stop_build_on_error = False  # Generally, only stop if production
+
+# Link here from rst with explicit ".html" ext (!) but NOT from a doctree
+openapi_generated_file_posix_path = Path("content/-/api/index")
 
 # -- Extension: sphinx_openapi (OpenAPI Local Download/Updater) -----------
 # Used in combination with the sphinxcontrib.redoc extension
-# Use OpenAPI ext to download/update -> redoc ext to generate
+# Use OpenAPI ext to download/update → redoc ext to generate
 
 # Define the target json|yaml + path to save the downloaded OpenAPI spec
-openapi_spec_url_noext = 'https://api.demo.goxbe.cloud/v1/openapi'
-openapi_dir_path = '_specs'  # Downloads json|yaml files to here
-openapi_file_type = 'json'  # 'json' or 'yaml' (we'll download them both, but generate from only 1)
+openapi_spec_url_noext = "https://api.demo.goxbe.cloud/v1/openapi"
 
-# Link here from rst with explicit ".html" ext (!) but NOT from a doctree
-openapi_generated_file_posix_path = Path(os.path.join(
-    'content', '-', 'api', 'index')).as_posix()  # Parses to forward/slashes/
+# 'json' or 'yaml' (we'll download them both, but generate from only 1)
+# (!) Currently, only json is fully functional and, additionally, supports preprocessing in the ext
+openapi_file_type = "json"
 
 # Set the config values for the extension
 html_context.update({
-    'openapi_spec_url_noext': openapi_spec_url_noext,
-    'openapi_dir_path': openapi_dir_path,
-    'openapi_generated_file_posix_path': openapi_generated_file_posix_path,
-    'openapi_file_type': openapi_file_type,
+    "openapi_spec_url_noext": openapi_spec_url_noext,
+    "openapi_dir_path": openapi_dir_path,
+    "openapi_generated_file_posix_path": openapi_generated_file_posix_path,
+    "openapi_file_type": openapi_file_type,
 })
 
 # -- Extension: sphinxcontrib.redoc --------------------------------------
@@ -47,38 +58,38 @@ html_context.update({
 # Doc | https://sphinxcontrib-redoc.readthedocs.io/en/stable
 # Demo | https://sphinxcontrib-redoc.readthedocs.io/en/stable/api/github/
 
+# (!) Works around a critical bug that default grabs old 1.x ver (that !supports OpenAPI 3+)
+redoc_uri = "https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"
+
 # Intentional forward/slashes/ for html; eg: "_static/specs/openapi.json"
-xbe_spec = openapi_dir_path + '/openapi.json'
-github_demo_spec = openapi_dir_path + '/github-demo.yml'
+xbe_spec = Path(openapi_dir_path, "openapi.json")
 
-redoc = [
-    {
-        'name': 'Xsolla Backend API',
-        'page': openapi_generated_file_posix_path,  # content/-/api/index
-        # 'spec': '_static/specs/openapi.json',  # (!) Ours Currently won't build due to errs: `/components/schemas/ACLRecordMongo". Token "ACLRecordMongo" does not exist`
-        'spec': github_demo_spec,  # DELETE ME AFTER DONE WITH TESTS!
-        'embed': True,  # Local file only (!) but embed is less powerful
-        'opts': {
-            'lazy-rendering': True,  # Formerly called `lazy`; almost required for giant docs
-            'required-props-first': True,  # Useful, (!) but slower
-            'native-scrollbars': False,  # Improves perf on big specs when False
-            'expand-responses': ["200", "201"],
-            'suppress-warnings': False,
-            'hide-hostname': False,
-            'untrusted-spec': False,
-        }
+redoc = [{
+    "name": "Xsolla Backend API",
+    "page": openapi_generated_file_posix_path,  # content/-/api/index
+    "spec": Path("_static/specs/openapi.json"),
+    "embed": True,  # Local file only (!) but embed is less powerful
+    "template": Path("_templates/redoc.j2"),
+    "opts": {
+        "lazy-rendering": True,  # Formerly called `lazy`; almost required for giant docs
+        "required-props-first": True,  # Useful, (!) but slower
+        "native-scrollbars": False,  # Improves perf on big specs when False
+        "expand-responses": [],  # "200", "201",
+        "suppress-warnings": False,
+        "hide-hostname": False,
+        "untrusted-spec": False,
     },
-]
+}]
 
-print(f'[conf.py::sphinxcontrib.redoc] redoc[0].page: {redoc[0]["page"]}')
-print(f'[conf.py::sphinxcontrib.redoc] redoc[0].spec: {redoc[0]["spec"]}')
-print('')
- ```
+print(f'[conf.py::sphinxcontrib.redoc] Build from redoc[0].spec: {redoc[0]["spec"]}')
+print(f'[conf.py::sphinxcontrib.redoc] Displaying at redoc[0].page: {redoc[0]["page"]}')
+print("")
+```
 
 ## Requirements
 
 - Python>=3.6
-- Sphinx>=1.8
+- Sphinx>=7
 
 This may work with older versions, but has not been tested.
 
@@ -90,7 +101,10 @@ See `setup(app)` definition at `sphinx_openapi.py`.
 
 - Windows 11 via PowerShell 7
 - Ubuntu 22.04 via ReadTheDocs (RTD) CI
+- Python 3.10~3.12
+- Sphinx 7~8
 
 ## Notes
 
 - `__init__.py` is required for both external pathing and to treat the directory as a pkg
+- **@ XBE Docs devs:** In conf.py, add `openapi_use_xbe_workarounds = True`, for now, for WIP bug workarounds

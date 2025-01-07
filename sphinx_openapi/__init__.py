@@ -12,6 +12,7 @@ except importlib.metadata.PackageNotFoundError:
 
 # ENTRY POINT >>
 def setup(app: Sphinx):
+    app.add_config_value("openapi_use_xbe_workarounds", False, "env", [str])
     app.add_config_value("openapi_spec_url_noext", "", "env", [str])
     app.add_config_value("openapi_dir_path", "_specs", "env", [str])
     app.add_config_value("openapi_generated_file_posix_path", "", "env", [str])
