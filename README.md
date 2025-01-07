@@ -13,44 +13,33 @@ This Sphinx extension allows for downloading updated OpenAPI json + yaml specs f
 Add the following to your `conf.py` (includes `redoc` extension setup):
 
 ```python
-import os
 from pathlib import Path
 
 html_context = {}  # This is usually already defined for other themes/extensions
 extensions = [
-	'sphinx_openapi', 
-	'sphinxcontrib.redoc',
+    'sphinx_openapi',
+    'sphinxcontrib.redoc',
 ]
 
 # -- OpenAPI Shared: Used in multiple extensions --------------------------
 
-openapi_use_xbe_workarounds = False  # (!) True for temp workaround for XBE Doc devs only 
-
 # Downloads json|yaml files to here
-openapi_dir_path = Path("_static/specs").resolve().as_posix()
-openapi_stop_build_on_error = False  # Generally, only stop if production
+openapi_dir_path = Path("_static/specs").absolute().as_posix()
+
+# openapi_stop_build_on_error = manifest_is_production_stage  # Only stop if production, else just show errs
+openapi_stop_build_on_error = True  # TEST - DELETE ME
 
 # Link here from rst with explicit ".html" ext (!) but NOT from a doctree
-openapi_generated_file_posix_path = Path("content/-/api/index")
+openapi_generated_file_posix_path = Path("content/-/api/index").as_posix()  # Parses to forward/slashes/
 
 # -- Extension: sphinx_openapi (OpenAPI Local Download/Updater) -----------
 # Used in combination with the sphinxcontrib.redoc extension
 # Use OpenAPI ext to download/update → redoc ext to generate
 
-# Define the target json|yaml + path to save the downloaded OpenAPI spec
-openapi_spec_url_noext = "https://api.demo.goxbe.cloud/v1/openapi"
-
-# 'json' or 'yaml' (we'll download them both, but generate from only 1)
-# (!) Currently, only json is fully functional and, additionally, supports preprocessing in the ext
-openapi_file_type = "json"
-
-# Set the config values for the extension
-html_context.update({
-    "openapi_spec_url_noext": openapi_spec_url_noext,
-    "openapi_dir_path": openapi_dir_path,
-    "openapi_generated_file_posix_path": openapi_generated_file_posix_path,
-    "openapi_file_type": openapi_file_type,
-})
+openapi_use_xbe_workarounds = True  # We have some floating workarounds; TODO: Fix + Remove
+openapi_spec_url_noext = "https://api.demo.goxbe.cloud/v1/openapi"  # Swap this with your own
+openapi_file_type = "json"  # or yaml; we'll download them both but generate from only 1
+openapi_use_xbe_workaround = True  # We have some floating workarounds within the extension; TODO: Fix + remove
 
 # -- Extension: sphinxcontrib.redoc --------------------------------------
 # OpenAPI Docgen: Similar to sphinxcontrib-openapi, but +1 column for example responses

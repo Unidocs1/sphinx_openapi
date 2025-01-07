@@ -12,12 +12,12 @@ except importlib.metadata.PackageNotFoundError:
 
 # ENTRY POINT >>
 def setup(app: Sphinx):
-    app.add_config_value("openapi_use_xbe_workarounds", False, "env", [str])
-    app.add_config_value("openapi_spec_url_noext", "", "env", [str])
-    app.add_config_value("openapi_dir_path", "_specs", "env", [str])
-    app.add_config_value("openapi_generated_file_posix_path", "", "env", [str])
-    app.add_config_value("openapi_file_type", "json", "env", [str])
-    app.add_config_value("openapi_stop_build_on_error", False, "env", [bool])
+    app.add_config_value("openapi_use_xbe_workarounds", False, "env")  # Default is False
+    app.add_config_value("openapi_spec_url_noext", "", "env")  # Default is an empty string
+    app.add_config_value("openapi_dir_path", "_specs", "env")  # Default is "_specs"
+    app.add_config_value("openapi_generated_file_posix_path", "", "env")  # Default is an empty string
+    app.add_config_value("openapi_file_type", "json", "env")  # Default is "json"
+    app.add_config_value("openapi_stop_build_on_error", False, "env")  # Default is False
 
     openapi_downloader = SphinxOpenApi(app)
     app.connect("builder-inited", openapi_downloader.setup_openapi)
