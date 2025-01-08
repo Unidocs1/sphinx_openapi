@@ -27,7 +27,7 @@ class SphinxOpenApi:
 
         # This is the file type we'll use for openapi docgen | json or yaml
         self.openapi_file_type = OpenApiFileType[app.config.openapi_file_type.upper()]
-        self.openapi_file_path_no_ext = Path(self.openapi_dir_path/"openapi").resolve().as_posix()
+        self.openapi_file_path_no_ext = Path(self.openapi_dir_path / "openapi").resolve().as_posix()
         self.openapi_file_path = Path(self.openapi_file_path_no_ext + self.openapi_file_type.value)  # .json or .yaml
 
     def download_schema_files(self):
@@ -133,11 +133,10 @@ class SphinxOpenApi:
                 resource_properties = schema["components"]["schemas"]["models.Resource"].get("properties", {})
                 if "defaults" in resource_properties and "$ref" in resource_properties["defaults"]:
                     resource_properties["defaults"]["$ref"] = None
-
-    # (2) Injections, if image and schema exist -> set x-logo
-        if "info" in schema:
-            schema["info"]["x-logo"] = "../../../_static/images/xbe_static_docs/logo.png"
-
+    
+            # (2) Injections, if image and schema exist -> set x-logo
+            if "info" in schema:
+                schema["info"]["x-logo"] = "../../../_static/images/xbe_static_docs/logo.png"
 
     # TODO: Add support for yaml
     def preprocess_json_schema_file(self):
