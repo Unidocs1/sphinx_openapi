@@ -32,19 +32,18 @@ class SphinxOpenApi:
 
     def download_schema_files(self):
         try:
-            self.download_file(
-                Path(self.openapi_spec_url_noext + ".json"),
-                Path(self.openapi_file_path_no_ext + ".json"),
-            )
+            # Construct properly formatted URLs
+            json_src_url = self.openapi_spec_url_noext + ".json"
+            yaml_dest_file = Path(self.openapi_file_path_no_ext + ".json")
+            self.download_file(json_src_url, yaml_dest_file)
         except Exception as e:
             print(f'[sphinx_openapi.py] Failed to download "{self.openapi_spec_url_noext}.json": {e}')
             return
 
         try:
-            self.download_file(
-                Path(self.openapi_spec_url_noext + ".yaml"),
-                Path(self.openapi_file_path_no_ext + ".yaml"),
-            )
+            yaml_url_src = self.openapi_spec_url_noext + ".yaml"
+            yaml_dest_file = Path(self.openapi_file_path_no_ext + ".yaml")
+            self.download_file(yaml_url_src, yaml_dest_file)
         except Exception as e:
             print(f'[sphinx_openapi.py] Failed to download "{self.openapi_spec_url_noext}.yaml": {e}')
             return
@@ -113,27 +112,32 @@ class SphinxOpenApi:
     def set_xbe_workarounds(schema):
         """
         TODO: Fix these and remove this workaround, caller, and openapi_use_xbe_workarounds flag:
+        TODO: Confirm if we still need these
         - 1. Bug workarounds - Replace these refs with null:
           - a. Invalid reference token: models.Address
           - b. Invalid reference token: models.Defaults
+          - c. Invalid reference token: models.DownloadInfo
         - 2. Injections:
           - a. Add logo: `../../../_static/images/xbe_static_docs/logo.png`
         """
         # (1) Bug fixes, if schemas exist -> Set None
         if "components" in schema and "schemas" in schema["components"]:
+            # Handle models.Contact -> properties -> address
             if "models.Contact" in schema["components"]["schemas"]:
                 contact_properties = schema["components"]["schemas"]["models.Contact"].get("properties", {})
                 if "address" in contact_properties and "$ref" in contact_properties["address"]:
                     contact_properties["address"]["$ref"] = None
 
+            # Handle models.Resource -> properties -> defaults
             if "models.Resource" in schema["components"]["schemas"]:
                 resource_properties = schema["components"]["schemas"]["models.Resource"].get("properties", {})
                 if "defaults" in resource_properties and "$ref" in resource_properties["defaults"]:
                     resource_properties["defaults"]["$ref"] = None
 
-        # (2) Injections, if image and schema exist -> set x-logo
+    # (2) Injections, if image and schema exist -> set x-logo
         if "info" in schema:
             schema["info"]["x-logo"] = "../../../_static/images/xbe_static_docs/logo.png"
+
 
     # TODO: Add support for yaml
     def preprocess_json_schema_file(self):
