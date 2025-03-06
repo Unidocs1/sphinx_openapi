@@ -1,20 +1,20 @@
 # sphinx_openapi/sphinx_openapi.py
-"""
-Standard imports and module docstring.
-"""
-import os
+from pathlib import Path
+
 import requests
 import yaml
-from pathlib import Path
 from requests.exceptions import Timeout
 from sphinx.application import Sphinx
+
 from models.schema_info import SchemaInfo
+
 
 class SphinxOpenApi:
     """
     Sphinx extension to download OpenAPI YAML schemas, apply workarounds,
-    and combine multiple schemas into one file.
+    and combine multiple schemas into one unified spec.
     """
+
     def __init__(self, app: Sphinx) -> None:
         self.app: Sphinx = app
         self.schema_info_list: list[SchemaInfo] = app.config.openapi_spec_list
@@ -25,99 +25,138 @@ class SphinxOpenApi:
     def setup_openapi(self, app: Sphinx) -> None:
         """
         Downloads each OpenAPI schema, applies workarounds if enabled,
-        and combines them into a single YAML file.
+        and combines them into a single unified YAML file.
         """
-        self.log(f"Starting setup. Spec URLs: {[s.url for s in self.schema_info_list]}")
+        self.log("Starting setup. Spec URLs:")
+        for schema in self.schema_info_list:
+            self.log(f"- {schema.url}")
 
-        if not self._dest_paths_unique():
-            msg = "Duplicate destination file names detected."
-            self.log(msg)
-            if self.openapi_stop_build_on_error:
-                raise RuntimeError(msg)
-
-        for schema_info in self.schema_info_list:
-            self._download_schema(schema_info)
+        for schema in self.schema_info_list:
+            self.download_file(schema.url, schema.dest)
+            if self.openapi_use_xbe_workarounds:
+                self._apply_xbe_workarounds(schema)
 
         if self.combined_schema_file_path:
             self._combine_schemas()
 
         self.log("Finished setup.")
 
-    def _dest_paths_unique(self) -> bool:
+    @staticmethod
+    def download_file(url: str, save_to_path: Path, timeout: int = 5) -> None:
         """
-        Checks that all destination file names in schema_info_list are unique.
-        """
-        dest_names = [schema.dest.name for schema in self.schema_info_list]
-        return len(dest_names) == len(set(dest_names))
-
-    def _download_schema(self, schema_info: SchemaInfo, timeout: int = 5) -> None:
-        """
-        Downloads a YAML schema from the provided URL to its destination path.
+        Downloads a file from the given URL to the provided path.
+        Overwrites any existing file.
         """
         try:
-            response = requests.get(schema_info.url, timeout=timeout)
+            response = requests.get(url, timeout=timeout)
             response.raise_for_status()
-            schema_info.dest.parent.mkdir(parents=True, exist_ok=True)
-            with open(schema_info.dest, "wb") as f:
+            save_to_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(save_to_path, "wb") as f:
                 f.write(response.content)
-            self.log(f"Downloaded {schema_info.url} to {schema_info.dest}")
-            if self.openapi_use_xbe_workarounds:
-                self._apply_xbe_workarounds(schema_info)
+            print(f"[sphinx_openapi] Successfully downloaded '{url}' to: '{save_to_path}'")
         except Timeout:
-            self.log(f"Timeout occurred while downloading: {schema_info.url}")
-            if self.openapi_stop_build_on_error:
-                raise
+            print(f"[sphinx_openapi] Timeout occurred while downloading: '{url}'")
         except requests.exceptions.HTTPError as http_err:
-            self.log(f"HTTP error for {schema_info.url}: {http_err}")
-            if self.openapi_stop_build_on_error:
-                raise
+            print(f"[sphinx_openapi] HTTP error for '{url}': {http_err}")
+        except requests.exceptions.RequestException as req_err:
+            print(f"[sphinx_openapi] Error downloading '{url}': {req_err}")
         except Exception as e:
-            self.log(f"Error downloading {schema_info.url}: {e}")
-            if self.openapi_stop_build_on_error:
-                raise
+            print(f"[sphinx_openapi] Unexpected error downloading '{url}': {e}")
 
-    def _apply_xbe_workarounds(self, schema_info: SchemaInfo) -> None:
+    def _apply_xbe_workarounds(self, schema: SchemaInfo) -> None:
         """
         Applies XBE workarounds by injecting a logo into the schema.
         """
         try:
-            with open(schema_info.dest, "r", encoding="utf-8") as f:
-                schema = yaml.safe_load(f)
-            if isinstance(schema, dict) and "info" in schema:
-                schema["info"]["x-logo"] = "../../../_static/images/xbe_static_docs/logo.png"
-            with open(schema_info.dest, "w", encoding="utf-8") as f:
-                yaml.safe_dump(schema, f)
-            self.log(f"Applied XBE workarounds to {schema_info.dest}")
+            with open(schema.dest, "r", encoding="utf-8") as f:
+                spec = yaml.safe_load(f)
+            if isinstance(spec, dict) and "info" in spec:
+                spec["info"]["x-logo"] = "../../../_static/images/xbe_static_docs/logo.png"
+            with open(schema.dest, "w", encoding="utf-8") as f:
+                yaml.safe_dump(spec, f)
+            self.log(f"Applied XBE workarounds to '{schema.dest}'")
         except Exception as e:
-            self.log(f"Failed to apply XBE workarounds to {schema_info.dest}: {e}")
+            self.log(f"Failed to apply XBE workarounds to '{schema.dest}': {e}")
             if self.openapi_stop_build_on_error:
                 raise
 
     def _combine_schemas(self) -> None:
         """
-        Combines all downloaded YAML schemas into one file.
+        Combines all downloaded OpenAPI YAML schemas into one unified spec.
+        Merges the 'paths' and 'components' sections.
         """
-        combined_schemas = []
-        for schema_info in self.schema_info_list:
+        specs = []
+        for schema in self.schema_info_list:
             try:
-                with open(schema_info.dest, "r", encoding="utf-8") as f:
-                    schema = yaml.safe_load(f)
-                combined_schemas.append(schema)
+                with open(schema.dest, "r", encoding="utf-8") as f:
+                    spec = yaml.safe_load(f)
+                    specs.append(spec)
             except Exception as e:
-                self.log(f"Error reading {schema_info.dest} for combination: {e}")
+                self.log(f"Error reading '{schema.dest}' for combination: {e}")
                 if self.openapi_stop_build_on_error:
                     raise
         try:
+            merged_spec = self.merge_openapi_specs(specs)
             self.combined_schema_file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.combined_schema_file_path, "w", encoding="utf-8") as f:
-                yaml.safe_dump(combined_schemas, f)
-            self.log(f"Combined schemas written to {self.combined_schema_file_path}")
+                yaml.safe_dump(merged_spec, f)
+            self.log(f"Combined schemas written to '{self.combined_schema_file_path}'")
         except Exception as e:
             self.log(f"Error writing combined schema file: {e}")
             if self.openapi_stop_build_on_error:
                 raise
 
-    def log(self, message: str) -> None:
+    @staticmethod
+    def merge_openapi_specs(specs: list[dict]) -> dict:
+        """
+        Merges a list of OpenAPI specification dictionaries into one unified spec.
+        This basic merging algorithm:
+          - Uses the 'openapi' version and 'info' from the first spec.
+          - Merges all 'paths', allowing duplicate paths by appending a numeric suffix (-1, -2, etc.).
+          - Merges 'components' by shallow-merging each component category.
+        """
+        if not specs:
+            raise ValueError("[sphinx_openapi] No specifications provided for merging.")
+
+        merged_spec = {
+            "openapi": specs[0].get("openapi", "3.0.0"),
+            "info": specs[0].get("info", {}),
+            "paths": {},
+        }
+        merged_components = {}
+
+        for spec in specs:
+            for path, path_item in spec.get("paths", {}).items():
+                unique_path = path
+                counter = 1
+                while unique_path in merged_spec["paths"]:
+                    unique_path = f"{path}-{counter}"
+                    counter += 1
+                merged_spec["paths"][unique_path] = path_item
+
+            components = spec.get("components", {})
+            for comp_key, comp_val in components.items():
+                if comp_key not in merged_components:
+                    merged_components[comp_key] = comp_val
+                else:
+                    for item_key, item_val in comp_val.items():
+                        if item_key in merged_components[comp_key]:
+                            counter = 1
+                            unique_item_key = f"{item_key}-{counter}"
+                            while unique_item_key in merged_components[comp_key]:
+                                counter += 1
+                                unique_item_key = f"{item_key}-{counter}"
+                            merged_components[comp_key][unique_item_key] = item_val
+                        else:
+                            merged_components[comp_key][item_key] = item_val
+
+        if merged_components:
+            merged_spec["components"] = merged_components
+
+        return merged_spec
+
+    @staticmethod
+    def log(message: str) -> None:
         """
         Logs a message with a standard prefix.
         """
