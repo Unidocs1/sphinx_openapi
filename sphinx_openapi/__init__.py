@@ -9,6 +9,7 @@ try:
 except importlib.metadata.PackageNotFoundError:
     __version__ = "0.0.0"
 
+
 def setup(app: Sphinx) -> dict:
     """
     Sets up the sphinx_openapi extension.

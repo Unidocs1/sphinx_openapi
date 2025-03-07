@@ -20,7 +20,9 @@ class SphinxOpenApi:
         self.schema_info_list: list[SchemaInfo] = app.config.openapi_spec_list
         self.openapi_use_xbe_workarounds: bool = app.config.openapi_use_xbe_workarounds
         self.openapi_stop_build_on_error: bool = app.config.openapi_stop_build_on_error
-        self.combined_schema_file_path: Path = app.config.openapi_combined_schema_file_path
+        self.combined_schema_file_path: Path = (
+            app.config.openapi_combined_schema_file_path
+        )
 
     def setup_openapi(self, app: Sphinx) -> None:
         """
@@ -53,7 +55,9 @@ class SphinxOpenApi:
             save_to_path.parent.mkdir(parents=True, exist_ok=True)
             with open(save_to_path, "wb") as f:
                 f.write(response.content)
-            print(f"[sphinx_openapi] Successfully downloaded '{url}' to: '{save_to_path}'")
+            print(
+                f"[sphinx_openapi] Successfully downloaded '{url}' to: '{save_to_path}'"
+            )
         except Timeout:
             print(f"[sphinx_openapi] Timeout occurred while downloading: '{url}'")
         except requests.exceptions.HTTPError as http_err:
@@ -71,7 +75,9 @@ class SphinxOpenApi:
             with open(schema.dest, "r", encoding="utf-8") as f:
                 spec = yaml.safe_load(f)
             if isinstance(spec, dict) and "info" in spec:
-                spec["info"]["x-logo"] = "../../../_static/images/xbe_static_docs/logo.png"
+                spec["info"][
+                    "x-logo"
+                ] = "../../../_static/images/xbe_static_docs/logo.png"
             with open(schema.dest, "w", encoding="utf-8") as f:
                 yaml.safe_dump(spec, f)
             self.log(f"Applied XBE workarounds to '{schema.dest}'")

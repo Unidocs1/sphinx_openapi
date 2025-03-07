@@ -12,6 +12,7 @@ class DummyApp:
     Minimal dummy Sphinx app for CLI mode.
     Only implements the attributes and methods required by SphinxOpenApi.
     """
+
     def __init__(self, config: SimpleNamespace) -> None:
         self.config = config
 
@@ -97,7 +98,7 @@ def main() -> None:
     )
     dummy_app = DummyApp(config)
     openapi_ext = SphinxOpenApi(dummy_app)  # type: ignore
-    openapi_ext.setup_openapi(dummy_app)      # type: ignore
+    openapi_ext.setup_openapi(dummy_app)  # type: ignore
 
 
 if __name__ == "__main__":
