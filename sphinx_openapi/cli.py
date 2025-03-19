@@ -20,15 +20,15 @@ class DummyApp:
         pass
 
 
-def unique_schema_info(urls: list[str], dest_dir: Path) -> list[SchemaInfo]:
+def unique_schema_info(sources: list[str], dest_dir: Path) -> list[SchemaInfo]:
     """
-    Given a list of URLs and a destination directory, returns a list of SchemaInfo
+    Given a list of sources (URLs or file paths) and a destination directory, returns a list of SchemaInfo
     with unique destination file names. If duplicate file names occur, appends '-1', '-2', etc.
     """
     dest_names: dict[str, int] = {}
     schema_info_list = []
-    for url in urls:
-        original_filename = Path(url.split("/")[-1]).name
+    for source in sources:
+        original_filename = Path(source.split("/")[-1]).name
         base = Path(original_filename).stem
         ext = Path(original_filename).suffix
         candidate = f"{base}{ext}"
@@ -37,32 +37,32 @@ def unique_schema_info(urls: list[str], dest_dir: Path) -> list[SchemaInfo]:
             candidate = f"{base}-{dest_names[candidate]}{ext}"
         else:
             dest_names[candidate] = 0
-        schema_info_list.append(SchemaInfo(url, dest_dir / candidate))
+        schema_info_list.append(SchemaInfo(source, dest_dir / candidate))
     return schema_info_list
 
 
 def main() -> None:
     """
     CLI entry point for downloading and processing multiple OpenAPI schemas.
-    Each URL is downloaded to the destination directory using a unique file name.
+    Each source (URL or file) is processed and saved to the destination directory using a unique file name.
     Displays help/instructions when run with --help.
     """
     parser = argparse.ArgumentParser(
         description="Sphinx OpenAPI CLI: Download, process, and optionally combine OpenAPI schemas."
     )
     parser.add_argument(
-        "--urls",
+        "--sources",
         nargs="+",
         type=str,
         required=True,
-        help="List of OpenAPI spec URLs to download. Do not include surrounding brackets.",
+        help="List of OpenAPI spec sources (URLs or file paths) to process. Do not include surrounding brackets.",
     )
     parser.add_argument(
         "--dest-dir",
         type=Path,
         required=False,
         default=Path.cwd(),
-        help="Destination directory where the downloaded schemas will be saved.",
+        help="Destination directory where the processed schemas will be saved.",
     )
     parser.add_argument(
         "--use-xbe-workarounds",
@@ -88,8 +88,8 @@ def main() -> None:
     else:
         args.dest_dir.mkdir(parents=True, exist_ok=True)
 
-    # Process URLs to ensure unique destination filenames.
-    schema_info_list = unique_schema_info(args.urls, args.dest_dir)
+    # Process sources to ensure unique destination filenames.
+    schema_info_list = unique_schema_info(args.sources, args.dest_dir)
     config = SimpleNamespace(
         openapi_spec_list=schema_info_list,
         openapi_use_xbe_workarounds=args.use_xbe_workarounds,

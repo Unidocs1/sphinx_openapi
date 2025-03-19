@@ -17,6 +17,7 @@ def setup(app: Sphinx) -> dict:
     app.add_config_value("openapi_spec_list", [], "env")
     app.add_config_value("openapi_use_xbe_workarounds", False, "env")
     app.add_config_value("openapi_stop_build_on_error", False, "env")
+    app.add_config_value("openapi_debug_stop_on_done", False, "env")
     app.add_config_value("openapi_combined_schema_file_path", None, "env")
 
     openapi_ext = SphinxOpenApi(app)

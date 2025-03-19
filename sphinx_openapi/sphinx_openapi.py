@@ -6,7 +6,7 @@ import yaml
 from requests.exceptions import Timeout
 from sphinx.application import Sphinx
 
-from models.schema_info import SchemaInfo
+from sphinx_openapi.models.schema_info import SchemaInfo
 
 
 class SphinxOpenApi:
@@ -20,6 +20,7 @@ class SphinxOpenApi:
         self.schema_info_list: list[SchemaInfo] = app.config.openapi_spec_list
         self.openapi_use_xbe_workarounds: bool = app.config.openapi_use_xbe_workarounds
         self.openapi_stop_build_on_error: bool = app.config.openapi_stop_build_on_error
+        self.openapi_debug_stop_on_done: bool = app.config.openapi_debug_stop_on_done
         self.combined_schema_file_path: Path = (
             app.config.openapi_combined_schema_file_path
         )
@@ -29,43 +30,66 @@ class SphinxOpenApi:
         Downloads each OpenAPI schema, applies workarounds if enabled,
         and combines them into a single unified YAML file.
         """
-        self.log("Starting setup. Spec URLs:")
+        if not self.schema_info_list:
+            self.log("No OpenAPI specs configured, skipping setup")
+            return
+
+        print("")
+        self.log("--------------------------------")
+        self.log("Starting setup. Spec sources:")
         for schema in self.schema_info_list:
-            self.log(f"- {schema.url}")
+            self.log(f"- {schema.source}")
 
         for schema in self.schema_info_list:
-            self.download_file(schema.url, schema.dest)
+            self.download_file(schema.source, schema.dest)
             if self.openapi_use_xbe_workarounds:
                 self._apply_xbe_workarounds(schema)
 
         if self.combined_schema_file_path:
             self._combine_schemas()
 
+        print("")
         self.log("Finished setup.")
+        
+        if self.openapi_debug_stop_on_done:
+            self.log("Debug mode: Stopping build after OpenAPI setup", is_error=True)
+            import sys
+            sys.exit(0)
 
     @staticmethod
-    def download_file(url: str, save_to_path: Path, timeout: int = 5) -> None:
+    def download_file(source: str | Path, save_to_path: Path, timeout: int = 5) -> None:
         """
-        Downloads a file from the given URL to the provided path.
+        Downloads a file from the given URL or copies from local path to the provided path.
         Overwrites any existing file.
         """
         try:
-            response = requests.get(url, timeout=timeout)
-            response.raise_for_status()
+            source_str = str(source)
+            if source_str.startswith(('http://', 'https://')):
+                response = requests.get(source_str, timeout=timeout)
+                response.raise_for_status()
+                content = response.content
+            else:
+                # Handle local file
+                with open(source_str, 'rb') as f:
+                    content = f.read()
+            
             save_to_path.parent.mkdir(parents=True, exist_ok=True)
             with open(save_to_path, "wb") as f:
-                f.write(response.content)
+                f.write(content)
+            print("")
             print(
-                f"[sphinx_openapi] Successfully downloaded '{url}' to: '{save_to_path}'"
+                f"[sphinx_openapi] Successfully {'downloaded' if source_str.startswith(('http://', 'https://')) else 'copied'} '{source_str}' to: '{save_to_path}'"
             )
         except Timeout:
-            print(f"[sphinx_openapi] Timeout occurred while downloading: '{url}'")
+            print(f"[sphinx_openapi] Timeout occurred while downloading: '{source_str}'")
         except requests.exceptions.HTTPError as http_err:
-            print(f"[sphinx_openapi] HTTP error for '{url}': {http_err}")
+            print(f"[sphinx_openapi] HTTP error for '{source_str}': {http_err}")
         except requests.exceptions.RequestException as req_err:
-            print(f"[sphinx_openapi] Error downloading '{url}': {req_err}")
+            print(f"[sphinx_openapi] Error downloading '{source_str}': {req_err}")
+        except FileNotFoundError:
+            print(f"[sphinx_openapi] File not found: '{source_str}'")
         except Exception as e:
-            print(f"[sphinx_openapi] Unexpected error downloading '{url}': {e}")
+            print(f"[sphinx_openapi] Unexpected error processing '{source_str}': {e}")
 
     def _apply_xbe_workarounds(self, schema: SchemaInfo) -> None:
         """
@@ -81,10 +105,12 @@ class SphinxOpenApi:
             with open(schema.dest, "w", encoding="utf-8") as f:
                 yaml.safe_dump(spec, f)
             self.log(f"Applied XBE workarounds to '{schema.dest}'")
+        except FileNotFoundError:
+            self.log(f"Schema file not found: '{schema.dest}'", is_error=True)
+        except yaml.YAMLError as e:
+            self.log(f"Invalid YAML in '{schema.dest}': {str(e)}", is_error=True)
         except Exception as e:
-            self.log(f"Failed to apply XBE workarounds to '{schema.dest}': {e}")
-            if self.openapi_stop_build_on_error:
-                raise
+            self.log(f"Failed to apply XBE workarounds to '{schema.dest}': {str(e)}", is_error=True)
 
     def _combine_schemas(self) -> None:
         """
@@ -97,20 +123,29 @@ class SphinxOpenApi:
                 with open(schema.dest, "r", encoding="utf-8") as f:
                     spec = yaml.safe_load(f)
                     specs.append(spec)
+            except FileNotFoundError:
+                self.log(f"Schema file not found: '{schema.dest}'", is_error=True)
+                continue
+            except yaml.YAMLError as e:
+                self.log(f"Invalid YAML in '{schema.dest}': {str(e)}", is_error=True)
+                continue
             except Exception as e:
-                self.log(f"Error reading '{schema.dest}' for combination: {e}")
-                if self.openapi_stop_build_on_error:
-                    raise
+                self.log(f"Error reading '{schema.dest}': {str(e)}", is_error=True)
+                continue
+
+        if not specs:
+            self.log("No valid schemas to combine", is_error=True)
+            return
+
         try:
             merged_spec = self.merge_openapi_specs(specs)
             self.combined_schema_file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.combined_schema_file_path, "w", encoding="utf-8") as f:
                 yaml.safe_dump(merged_spec, f)
+            print("")
             self.log(f"Combined schemas written to '{self.combined_schema_file_path}'")
         except Exception as e:
-            self.log(f"Error writing combined schema file: {e}")
-            if self.openapi_stop_build_on_error:
-                raise
+            self.log(f"Error writing combined schema file: {str(e)}", is_error=True)
 
     @staticmethod
     def merge_openapi_specs(specs: list[dict]) -> dict:
@@ -162,8 +197,12 @@ class SphinxOpenApi:
         return merged_spec
 
     @staticmethod
-    def log(message: str) -> None:
+    def log(message: str, is_error: bool = False) -> None:
         """
         Logs a message with a standard prefix.
+        If is_error is True, the message will be shown in red with line breaks.
         """
-        print(f"[sphinx_openapi] {message}")
+        if is_error:
+            print(f"\n[sphinx_openapi] \033[91m{message}\033[0m\n")
+        else:
+            print(f"[sphinx_openapi] {message}")
